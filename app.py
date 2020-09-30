@@ -7,71 +7,21 @@ import dateutil.parser
 import babel
 from flask import Flask, render_template, request, Response, flash, redirect, url_for
 from flask_moment import Moment
-from flask_sqlalchemy import SQLAlchemy
 import logging
 from logging import Formatter, FileHandler
 from flask_wtf import Form
 from forms import *
-from flask_migrate import Migrate
 import sys
+
+from models import app, db, Venue, Artist, Show
 #----------------------------------------------------------------------------#
 # App Config.
 #----------------------------------------------------------------------------#
 
 app = Flask(__name__)
 moment = Moment(app)
+db.init_app(app)
 app.config.from_object('config')
-db = SQLAlchemy(app)
-
-migrate = Migrate(app, db)
-
-#----------------------------------------------------------------------------#
-# Models.
-#----------------------------------------------------------------------------#
-
-class Venue(db.Model):
-    __tablename__ = 'venue'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    address = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
-    image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
-    website = db.Column(db.String(120))
-    seeking_talent = db.Column(db.Boolean, nullable=True, default=True)
-    seeking_description = db.Column(db.String(500))
-    genres = db.Column(db.ARRAY(db.String(120)))
-
-    artists = db.relationship("Show", back_populates="venue")
-
-class Artist(db.Model):
-    __tablename__ = 'artist'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(120))
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
-    genres = db.Column(db.ARRAY(db.String(120)))
-    image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
-    website = db.Column(db.String(120))
-    seeking_venue = db.Column(db.Boolean, nullable=True, default=True)
-    seeking_description = db.Column(db.String(500))
-
-    venues = db.relationship("Show", back_populates="artist")
-
-  
-class Show(db.Model):
-  __tablename__ = 'show'
-  venue_id = db.Column(db.Integer, db.ForeignKey('venue.id'), primary_key=True)
-  artist_id = db.Column(db.Integer, db.ForeignKey('artist.id'), primary_key=True)
-  start_time = db.Column(db.DateTime, nullable=False)
-  artist = db.relationship("Artist", back_populates="venues")
-  venue = db.relationship("Venue", back_populates="artists")
 
 #----------------------------------------------------------------------------#
 # Filters.
@@ -101,6 +51,15 @@ def index():
 
 @app.route('/venues')
 def venues():
+  """
+  Collects data from backend to display all venues.
+
+  Args:
+      none
+
+  Returns:
+      data: list of venues sorted by cities
+  """
   data = []
   cities = db.session.query(Venue).distinct(Venue.city).all()
 
@@ -121,6 +80,15 @@ def venues():
 
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
+  """
+  Searches for venues from front-end input parameter
+
+  Args:
+      none
+
+  Returns:
+      data: list of venues 
+  """
   search_term = request.form.get('search_term')
   venues = db.session.query(Venue).filter(Venue.name.contains(search_term)).all()
 
@@ -141,6 +109,15 @@ def search_venues():
 
 @app.route('/venues/<int:venue_id>')
 def show_venue(venue_id):
+  """
+  Collects data from backend to display a single venue
+
+  Args:
+      int: venue_id
+
+  Returns:
+      dict: relevant data of venue 
+  """
   venue = db.session.query(Venue).get(venue_id)
   past_shows_query = db.session.query(Show).join(Artist).filter(Show.venue_id == venue_id, Show.start_time < datetime.now()).all()
   upcoming_shows_query = db.session.query(Show).join(Artist).filter(Show.venue_id == venue_id, Show.start_time > datetime.now()).all()
@@ -195,6 +172,15 @@ def create_venue_form():
 
 @app.route('/venues/create', methods=['POST'])
 def create_venue_submission():
+  """
+  Creates venue from form submission
+
+  Args:
+      none
+
+  Returns:
+      redirect: redirect to index
+  """
   error = False
   try:
     name = request.form['name']
@@ -225,6 +211,15 @@ def create_venue_submission():
 
 @app.route('/venues/<venue_id>', methods=['DELETE'])
 def delete_venue(venue_id):
+  """
+  Deletes venue in backend
+
+  Args:
+      none
+
+  Returns:
+      redirect: redirects to index
+  """
   # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
   # clicking that button delete it from the db then redirect the user to the homepage
 
@@ -241,6 +236,15 @@ def delete_venue(venue_id):
 #  ----------------------------------------------------------------
 @app.route('/artists')
 def artists():
+  """
+  Pulls data to display artists
+
+  Args:
+      none
+
+  Returns:
+      data: list of artist 
+  """
   data = []
   artists = db.session.query(Artist).all()
 
@@ -255,6 +259,15 @@ def artists():
 
 @app.route('/artists/search', methods=['POST'])
 def search_artists():
+  """
+  Searches for artist on string input from form
+
+  Args:
+      none
+
+  Returns:
+      data: list of artist 
+  """
   search_term = request.form.get('search_term')
   artists = db.session.query(Artist).filter(Artist.name.contains(search_term)).all()
 
@@ -281,6 +294,15 @@ def search_artists():
 
 @app.route('/artists/<int:artist_id>')
 def show_artist(artist_id):
+  """
+  Pulls data to display particular artist
+
+  Args:
+      int: artist_id
+
+  Returns:
+      data: data for artist 
+  """
   artist = db.session.query(Artist).get(artist_id)
   past_shows_query = db.session.query(Show).join(Venue).filter(Show.artist_id == artist_id, Show.start_time < datetime.now()).all()
   upcoming_shows_query = db.session.query(Show).join(Venue).filter(Show.artist_id == artist_id, Show.start_time > datetime.now()).all()
